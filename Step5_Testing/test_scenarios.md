@@ -1,175 +1,155 @@
 Overview
 
-Purpose: Verify logic against typical scenarios and refine thresholds.
+Purpose: Verify the flowchart and word code with realistic situations and tune thresholds.
 
-System behavior per flowchart:
+Key behaviors under test:
 
-Enters feeding only within feeding window.
+Feeding only when within the feeding window.
 
-If foodLevelSensorStatus is True → activateAlert → Stop cycle.
+foodLevelSensorStatus True → activateAlert → Stop (no motor).
 
-Else: activateMotor=True → dispense until target weight increase ≥ dispenseAmount_g → activateMotor=False.
+Dispense until weight increase ≥ dispenseAmount_g.
 
-Wait 30 minutes, measure postWaitWeight_g.
+After 30 minutes, if bowl weight decrease < decreaseThreshold_g → alertType = NOT_EATEN → activateAlert → Stop.
 
-If bowl weight decrease < decreaseThreshold_g → alertType=NOT_EATEN → activateAlert=True → Stop.
+Otherwise, success and return to loop.
 
-Else: success and return to loop.
+Parameters used for tests (adjust to your design)
 
-Key parameters used in tests 
+dispenseAmount_g = 60
 
-dispenseAmount_g: 60g
+waitMinutes = 30
 
-waitMinutes: 30
+decreaseThreshold_g = 10
 
-decreaseThreshold_g: 10g
-
-trigger window: as scheduled (e.g., 08:00, 18:00)
-
-Reading function: avg bowl weight over multiple samples
+Example windows: 08:00, 18:00
 
 Scenario A — Pet eats as expected
-Setup
+
+Setup:
 
 feeding window: active
 
-foodLevelSensorStatus = False (OK)
+foodLevelSensorStatus = False
 
-preDispenseWeight_g = 20g
+preDispenseWeight_g = 20
 
-Target: dispenseAmount_g = 60g
+postDispenseWeight_g ≈ 80 (≈60g dispensed)
 
-After dispensing: postDispenseWeight_g ≈ 80g
+postWaitWeight_g ≈ 30 (consumed ≈50g)
 
-After 30 minutes: postWaitWeight_g ≈ 30g (consumed ≈ 50g)
+Expected:
 
-Expected
+No alert. Cycle returns to loop.
 
-Motor activates, dispenses until increase ≥60g (±sensor tolerance).
+Observed (sim):
 
-After 30 minutes, consumedDuringWait_g = 80 − 30 = 50g ≥ 10g threshold → success.
+Success; logs indicate consumed≈50g.
 
-No alert; cycle returns to loop.
+Refinement:
 
-Observed (simulate)
-
-Success. Log “dispense complete,” “consumed≈50g.”
-
-Refinement
-
-None required. Keep decreaseThreshold_g=10g for timely detection.
+None; thresholds seem fine.
 
 Scenario B — Pet does not eat
-Setup
+
+Setup:
 
 feeding window: active
 
-foodLevelSensorStatus = False (OK)
+foodLevelSensorStatus = False
 
-preDispenseWeight_g = 10g
+preDispenseWeight_g = 10
 
-After dispense: postDispenseWeight_g ≈ 70g
+postDispenseWeight_g ≈ 70
 
-After 30 minutes: postWaitWeight_g ≈ 68g (consumed ≈ 2g)
+postWaitWeight_g ≈ 68 (consumed ≈2g)
 
-Expected
+Expected:
 
-After wait, consumedDuringWait_g = 70 − 68 = 2g < 10g → alertType=NOT_EATEN → activateAlert=True → Stop.
+NOT_EATEN alert after 30 min; Stop.
 
-Observed (simulate)
+Observed (sim):
 
-NOT_EATEN alert sent; cycle stops.
+NOT_EATEN alert triggered.
 
-Refinement
+Refinement:
 
-If false positives occur (pet eats later), consider:
-
-Extending waitMinutes to 45–60 in busy shelter hours, or
-
-Lowering decreaseThreshold_g to 8g. Document trade‑off.
+If false alarms occur, consider waitMinutes=45 or decreaseThreshold_g=8.
 
 Scenario C — Hopper empty/low (sensor True)
-Setup
+
+Setup:
 
 feeding window: active
 
 foodLevelSensorStatus = True
 
-Expected
+Expected:
 
-Immediate alert path: activateAlert=True; Stop cycle (no motor movement).
+Immediate alert; Stop. No motor.
 
-Observed (simulate)
+Observed (sim):
 
-Alert “Food level issue (bin empty/low).” No dispensing.
+Alert sent; cycle stopped.
 
-Refinement
+Refinement:
 
-Add a pre‑window “low hopper” reminder (e.g., 10 minutes before window) if sensor supports percentage.
+Add pre-window reminder if the sensor can report LOW before EMPTY.
 
-Scenario D — Under‑dispense (motor stalls mid‑dispense)
-Setup
+Scenario D — Under‑dispense (stall or jam while dispensing)
 
-feeding window: active
+Setup:
 
-foodLevelSensorStatus = False
+feeding window: active; sensor False
 
-preDispenseWeight_g = 5g
+preDispenseWeight_g = 5
 
-Motor runs but weight delta increases slowly and never reaches 60g within allowed pulses/time.
+Motor runs but actual increase < 60g (e.g., only +20g)
 
-Expected
+Expected:
 
-Dispense loop exits when target not met (your flowchart does not show retries explicitly). Post‑dispense proceeds to 30‑minute wait.
+Your chart proceeds to wait and then evaluates eating; if pet doesn’t compensate, likely NOT_EATEN alert.
 
-Likely NOT_EATEN or minimal consumption.
+Optional improvement: flag “Under‑dispense suspected” when actual dispensed <70% of target.
 
-Consider raising an operational alert “Under-dispense suspected” if actual dispensed < target by large margin (optional extension).
+Observed (sim):
 
-Observed (simulate)
+Minimal consumption; NOT_EATEN fired.
 
-Low actual dispensed. If pet doesn’t eat, NOT_EATEN triggers.
+Refinement:
 
-If you add an under‑dispense alert, log it when postDispenseWeight_g − preDispenseWeight_g < (0.7 × dispenseAmount_g).
+Add a retry limit or “max pulses” guard and alert “Under‑dispense.”
 
-Refinement
+Scenario E — Outside feeding window (sanity check)
 
-Add a small retry loop or a “max pulses” guard + alert “Under‑dispense.”
+Setup:
 
-Consider motor feedback check if hardware allows.
+currentTime not within window
 
-Scenario E — Bowl already heavy before feed (optional pre‑check)
-Note: Your current flowchart does not include a spill prevention pre‑check. If you decide to add it, the behavior would be:
+Expected:
 
-Setup
+Time loop keeps checking; no dispense, no alerts.
 
-preDispenseWeight_g = 120g (above cutoff, e.g., spill threshold)
+Observed (sim):
 
-foodLevelSensorStatus = False
+Idle loop only.
 
-Expected (with added decision)
+Refinement:
 
-Skip dispense; alert “Bowl already full”; Stop or return to loop.
+None.
 
-Observed (simulate)
+Sample log excerpts (add to Step5_Testing/logs_examples.txt if you like)
 
-Prevents overfilling and waste.
+08:00: Enter window; pre=20g; target=60g
 
-Refinement
+08:01: Dispense end; post=80g; actual=60g
 
-Consider adding this decision before “activateMotor is True” in the flowchart for safety.
+08:31: Wait end; postWait=30g; consumed=50g; status=OK
 
-Sample Logs (concise)
-Enter window 08:00 — pre=20g, target=60g
+18:00: Enter window; pre=10g; target=60g
 
-Dispense end — post=80g, actual=60g
+18:01: Dispense end; post=70g; actual=60g
 
-Wait end (30m) — postWait=30g, consumed=50g — OK
+18:31: Wait end; postWait=68g; consumed=2g; ALERT=NOT_EATEN
 
-Enter window 18:00 — pre=10g, target=60g
-
-Dispense end — post=70g, actual=60g
-
-Wait end (30m) — postWait=68g, consumed=2g — ALERT NOT_EATEN
-
-Enter window 08:00 — foodLevelSensorStatus=True — ALERT BIN LOW/EMPTY — STOP
+08:00: foodLevelSensorStatus=True; ALERT=BIN LOW/EMPTY; STOP
