@@ -1,1 +1,103 @@
+Step 1 — Problem Statement and Requirements
 
+Problem statement
+Design a low‑cost, programmable automated pet feeder for a shelter that:
+
+Dispenses food for cats and dogs at scheduled times.
+
+Monitors if food was eaten (by measuring bowl weight change) and roughly how much.
+
+Alerts staff if there’s an issue (e.g., hopper empty/low, pet did not eat, or other detected problems).
+This assignment focuses on the logic/behavior first (analysis, flowchart, and word code), suitable for later implementation with inexpensive hardware (servo motor, load cell, simple level sensor).
+
+Stakeholders
+
+Animal shelter staff (primary users, receive alerts, configure schedules).
+
+Animals (cats/dogs) being fed.
+
+Unit assessors reviewing the process and documentation.
+
+Scope
+
+One feeder serves one bowl at a time.
+
+Supports multiple scheduled feed times per day.
+
+Measures dispense and consumption via bowl weight.
+
+Sends alerts; if offline, logs locally.
+
+Out of scope (now)
+
+Full hardware build and firmware.
+
+Complex UI/mobile app.
+
+Multi-bowl simultaneous feeding.
+
+Assumptions
+
+Dry kibble only; consistent enough for pulse‑based dispensing.
+
+Real‑time clock/timezone is set and accurate.
+
+foodLevelSensorStatus=True means “hopper problem (empty/low)” per the flowchart.
+
+The bowl scale can be tared and provides stable averaged readings.
+
+Network is usually available for alerts; otherwise, alerts are queued/logged.
+
+Up to 6 feedings/day per feeder (configurable).
+
+Safety: it’s acceptable to proceed without a pre‑feed “bowl already full” check (your current flowchart doesn’t include it). This can be added later if desired.
+
+Constraints
+
+Cost: use low‑cost components (e.g., SG90/servo, HX711+load cell, simple IR/float hopper sensor).
+
+Accuracy: dispensing and weight readings have tolerances; logic must be robust to small noise.
+
+Time window triggering should not run multiple times for the same slot.
+
+Inputs
+
+currentTime (RTC): time used to detect feeding windows.
+
+feedingWindow(s): scheduled times/intervals to feed.
+
+foodLevelSensorStatus (boolean): True indicates hopper issue (empty/low) and should alert/stop.
+
+bowlWeight (grams): averaged load‑cell reading.
+
+Configuration: dispenseAmount_g, waitMinutes (e.g., 30), decreaseThreshold_g (minimum eaten to count as “eaten enough”).
+
+Outputs
+
+Motor control: activateMotor to dispense until target dispenseAmount_g is reached.
+
+Alerts: activateAlert with alertType (e.g., NOT_EATEN or GENERAL/hopper).
+
+Logs: timestamped events (entered window, dispense start/end, wait end, alerts).
+
+
+Only act within the feeding window.
+
+If hopper sensor signals a problem (True), raise alert and stop.
+
+Otherwise, turn motor on and dispense until the weight increase reaches the target.
+
+Turn motor off, wait 30 minutes, re‑measure the bowl.
+
+If the weight hasn’t decreased enough, raise NOT_EATEN alert; else consider feeding successful.
+
+Return to time loop.
+
+
+RTC/Schedule → Time Window Check → Dispense Control (Servo)
+
+Bowl Weight Sensor → Dispense Verification and Post‑Wait Consumption Check
+
+Hopper Level Sensor → Pre‑dispense Alert/Stop
+
+Alerts/Logs → Staff notifications and local record
