@@ -64,24 +64,3 @@ License/Author
 
 Author: Sijan Khadka
 
-D) Commit messages (examples)
-
-“Add Step 3 flowchart (.drawio + .png)”
-
-“Add Step 4 word code and Step 5 test scenarios”
-
-“Update README and add collaborators”
-
-E) Quick submission check
-
-Flowchart PNG and .drawio present
-
-Word code present
-
-Test scenarios present
-
-README present
-
-Collaborators invited
-
-Repo link ready to put in your report
